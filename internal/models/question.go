@@ -7,8 +7,8 @@ type QuestionAPI struct {
 }
 
 type UserScore struct {
-    UserID string
-    Score  int
+	UserID   string
+	Accuracy float64
 }
 
 

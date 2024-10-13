@@ -83,6 +83,14 @@ func SubmitAnswers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	correct := 0
+	totalQuestions := len(requestData.Questions)
+
+	// Optional: Validate that the number of answers matches the number of questions
+	if len(requestData.Answers) != totalQuestions {
+			http.Error(w, "Mismatch between number of answers and questions", http.StatusBadRequest)
+			return
+	}
+
 	// Evaluate the user's answers
 	for i, userAnswer := range requestData.Answers {
 			if userAnswer == requestData.Questions[i].CorrectAnswer {
@@ -91,36 +99,38 @@ func SubmitAnswers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	userID := requestData.User
-	result := submitResults(userID, correct)
+	result := submitResults(userID, correct, totalQuestions)
 
 	json.NewEncoder(w).Encode(result)
 }
 
-func submitResults(userID string, score int) string {
-	// Check if the user already exists and update the score
+func submitResults(userID string, correctAnswers int, totalQuestions int) string {
+	accuracy := (float64(correctAnswers) / float64(totalQuestions)) * 100
+
+	// Check if the user already exists and update the accuracy
 	found := false
 	for i, userScore := range models.UserScores {
 			if userScore.UserID == userID {
-					models.UserScores[i].Score = score  // Overwrite the existing score
+					models.UserScores[i].Accuracy = accuracy // Overwrite the existing accuracy
 					found = true
 					break
 			}
 	}
 
 	if !found {
-			models.UserScores = append(models.UserScores, models.UserScore{UserID: userID, Score: score})
+			models.UserScores = append(models.UserScores, models.UserScore{UserID: userID, Accuracy: accuracy})
 	}
 
-	// Compare with other users
+	// Compare with other users based on accuracy
 	totalUsers := len(models.UserScores)
 	betterThanCount := 0
 
 	for _, userScore := range models.UserScores {
-			if userScore.Score < score {
+			if userScore.Accuracy < accuracy {
 					betterThanCount++
 			}
 	}
 
 	percentile := (float64(betterThanCount) / float64(totalUsers)) * 100
-	return fmt.Sprintf("You scored %d. You were better than %.2f%% of all quizzers.", score, percentile)
+	return fmt.Sprintf("You scored %d out of %d (%.2f%%). You were better than %.2f%% of all quizzers.", correctAnswers, totalQuestions, accuracy, percentile)
 }

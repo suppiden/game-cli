@@ -41,7 +41,7 @@ func takeQuiz() {
 			userNameInput, _ := reader.ReadString('\n')
 			userNameInput = strings.TrimSpace(userNameInput)
 
-			// Ensure the name is not empty
+			// We Ensure the name is not empty
 			if userNameInput == "" {
 					fmt.Println("Name cannot be empty. Please enter your name.")
 					continue
