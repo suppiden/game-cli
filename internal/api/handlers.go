@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net"
+	"net/url"
 	"html"
 	"go-crud/internal/models"
 	"math/rand"
@@ -21,35 +23,45 @@ type TriviaResponse struct {
 
 // Fetches questions from the Open Trivia API
 func FetchQuestionsFromAPI(amount int) ([]models.QuestionAPI, error) {
-	url := fmt.Sprintf("https://opentdb.com/api.php?amount=%d&type=multiple", amount)
+	urlStr := fmt.Sprintf("https://opentdb.com/api.php?amount=%d&type=multiple", amount)
 
-	res, err := http.Get(url)
-	if err != nil {
-			return nil, fmt.Errorf("error fetching questions: %v", err)
-	}
-	defer res.Body.Close()
+    res, err := http.Get(urlStr)
+    if err != nil {
+        if urlErr, ok := err.(*url.Error); ok {
+            if netErr, ok := urlErr.Err.(*net.OpError); ok {
+                if netErr.Op == "dial" {
+                    return nil, fmt.Errorf("unable to connect to the trivia API. Please check the server's internet connection")
+                }
+                return nil, fmt.Errorf("network error: %v", netErr)
+            }
+            return nil, fmt.Errorf("URL error: %v", urlErr)
+        }
+        return nil, fmt.Errorf("error fetching questions: %v", err)
+    }
+    defer res.Body.Close()
 
-	var trivia TriviaResponse
-	if err := json.NewDecoder(res.Body).Decode(&trivia); err != nil {
-			return nil, fmt.Errorf("error decoding trivia response: %v", err)
-	}
+    var trivia TriviaResponse
+    if err := json.NewDecoder(res.Body).Decode(&trivia); err != nil {
+        return nil, fmt.Errorf("error decoding trivia response: %v", err)
+    }
 
-	return trivia.Results, nil
+    return trivia.Results, nil
 }
 
 // GetQuestions serves questions to the CLI, allowing dynamic number of questions
 func GetQuestions(w http.ResponseWriter, r *http.Request) {
-	amount, err := strconv.Atoi(r.URL.Query().Get("amount"))
-	if err != nil || amount < 1 {
-			http.Error(w, "Invalid amount parameter", http.StatusBadRequest)
-			return
-	}
+	amountStr := r.URL.Query().Get("amount")
+    amount, err := strconv.Atoi(amountStr)
+    if err != nil || amount < 1 {
+        http.Error(w, "Invalid amount parameter", http.StatusBadRequest)
+        return
+    }
 
-	questions, err := FetchQuestionsFromAPI(amount)
-	if err != nil {
-			http.Error(w, "Failed to fetch questions", http.StatusInternalServerError)
-			return
-	}
+    questions, err := FetchQuestionsFromAPI(amount)
+    if err != nil {
+        http.Error(w, err.Error(), http.StatusServiceUnavailable)
+        return
+    }
 
 	// Escape HTML entities in questions and answers
 	for i, q := range questions {

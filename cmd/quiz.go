@@ -10,8 +10,10 @@ import (
     "bytes"
     "strconv"
 		"math/rand"
-
+		"io"
     "github.com/spf13/cobra"
+		"net"
+		"net/url"
 )
 
 var startCmd = &cobra.Command{
@@ -51,11 +53,32 @@ func takeQuiz() {
 			// Fetch questions from the local REST API, using the question count
 			questionURL := fmt.Sprintf("http://localhost:8080/questions?amount=%d", questionCount)
 			res, err := http.Get(questionURL)
-			if err != nil {
-					fmt.Println("Failed to get questions:", err)
-					return
-			}
-			defer res.Body.Close()
+        if err != nil {
+            // Check if the error is a URL error
+            if urlErr, ok := err.(*url.Error); ok {
+                // Check if it's a network operation error
+                if opErr, ok := urlErr.Err.(*net.OpError); ok {
+                    if opErr.Op == "dial" {
+                        fmt.Println("Unable to connect to the server. Please ensure the server is running and you have an active internet connection.")
+                    } else {
+                        fmt.Printf("Network error: %v\n", opErr)
+                    }
+                } else {
+                    fmt.Printf("URL error: %v\n", urlErr)
+                }
+            } else {
+                fmt.Println("An error occurred while fetching questions:", err)
+            }
+            return
+        }
+        defer res.Body.Close()
+
+        // Check if the server returned an error status code
+        if res.StatusCode != http.StatusOK {
+            bodyBytes, _ := io.ReadAll(res.Body)
+            fmt.Printf("Server returned an error: %s\n", string(bodyBytes))
+            return
+        }
 
 			var questions []map[string]interface{}
 			if err := json.NewDecoder(res.Body).Decode(&questions); err != nil {
@@ -116,22 +139,43 @@ func takeQuiz() {
 
 func postAnswers(userName string, answers map[int]string, questions []map[string]interface{}) {
 	data := map[string]interface{}{
-			"user":     userName,
-			"answers":  answers,
-			"questions": questions,
-	}
+		"user":     userName,
+		"answers":  answers,
+		"questions": questions,
+}
 
-	jsonData, _ := json.Marshal(data)
-	res, err := http.Post("http://localhost:8080/submit", "application/json", bytes.NewBuffer(jsonData))
-	if err != nil {
-			fmt.Println("Failed to submit answers:", err)
-			return
-	}
-	defer res.Body.Close()
+jsonData, _ := json.Marshal(data)
+res, err := http.Post("http://localhost:8080/submit", "application/json", bytes.NewBuffer(jsonData))
+if err != nil {
+		if urlErr, ok := err.(*url.Error); ok {
+				if opErr, ok := urlErr.Err.(*net.OpError); ok {
+						if opErr.Op == "dial" {
+								fmt.Println("Unable to connect to the server. Please ensure the server is running and you have an active internet connection.")
+						} else {
+								fmt.Printf("Network error: %v\n", opErr)
+						}
+				} else {
+						fmt.Printf("URL error: %v\n", urlErr)
+				}
+		} else {
+				fmt.Println("Failed to submit answers:", err)
+		}
+		return
+}
+defer res.Body.Close()
 
-	var result string
-	json.NewDecoder(res.Body).Decode(&result)
-	fmt.Println(result)
+if res.StatusCode != http.StatusOK {
+		bodyBytes, _ := io.ReadAll(res.Body)
+		fmt.Printf("Server returned an error: %s\n", string(bodyBytes))
+		return
+}
+
+var result string
+if err := json.NewDecoder(res.Body).Decode(&result); err != nil {
+		fmt.Println("Failed to decode response:", err)
+		return
+}
+fmt.Println(result)
 }
 
 func init() {
