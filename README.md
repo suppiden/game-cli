@@ -19,7 +19,7 @@ To run this game, you'll need:
 1. **Clone the repository**:
     ```bash
     git clone https://github.com/suppiden/game-cli.git
-    cd quiz-game
+    cd game-cli
     ```
 
 2. **Install dependencies**:
