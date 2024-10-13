@@ -41,7 +41,7 @@ func takeQuiz() {
 			userNameInput, _ := reader.ReadString('\n')
 			userNameInput = strings.TrimSpace(userNameInput)
 
-			// We Ensure the name is not empty
+			// Ensure the name is not empty
 			if userNameInput == "" {
 					fmt.Println("Name cannot be empty. Please enter your name.")
 					continue
@@ -79,13 +79,19 @@ func takeQuiz() {
 							fmt.Printf("%d: %s\n", idx+1, answer)
 					}
 
-					// Get the user's answer
-					response, _ := reader.ReadString('\n')
-					response = strings.TrimSpace(response)
-					selected, err := strconv.Atoi(response)
-					if err != nil || selected < 1 || selected > len(answers) {
-							fmt.Println("Invalid answer.")
-							continue
+					var selected int
+					for {
+							// Get the user's answer
+							fmt.Print("Your answer: ")
+							response, _ := reader.ReadString('\n')
+							response = strings.TrimSpace(response)
+							var err error
+							selected, err = strconv.Atoi(response)
+							if err != nil || selected < 1 || selected > len(answers) {
+									fmt.Println("Invalid answer. Please enter the number corresponding to your choice.")
+									continue
+							}
+							break
 					}
 
 					// Store the user's selected answer (as a string)
@@ -100,7 +106,7 @@ func takeQuiz() {
 			playAgainInput, _ := reader.ReadString('\n')
 			playAgain := strings.TrimSpace(strings.ToLower(playAgainInput))
 
-			if playAgain == "no" {
+			if playAgain == "no" || playAgain == "n" {
 					fmt.Println("Thank you for playing!")
 					return // Exit the program
 			}
