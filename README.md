@@ -63,7 +63,7 @@ Do you want to play again? (yes/no):
 
 
 ## 💻 Tech Stack
-- **Go**: The core language used to build both the server and the CLI.
+- **Go**: The core language used to build both the server and the CLI(https://github.com/spf13/cobra).
 - **Open Trivia API**: Used to fetch random trivia questions.
 
 ## 🤝 Contributing
